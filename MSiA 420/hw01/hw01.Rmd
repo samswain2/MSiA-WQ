@@ -1,0 +1,108 @@
+---
+title: "hw01"
+author: "Samuel Swain"
+date: "2023-01-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem 2
+
+#### Data
+```{r question_2}
+library(readxl)
+df_2 = read_excel("HW1_data.xls")
+```
+
+### 2(a)
+```{r question_2}
+fit_2a <- lm(y ~ x, data = df_2)
+cat("Regression function:", "y =", fit_2a$coef[1], "+", fit_2a$coef[2], "* x")
+y_0 = 1/fit_2a$coef[1]
+y_1 = fit_2a$coef[2]/fit_2a$coef[1]
+cat("\n", "y_0:", y_0, "\n","y_1:", y_1)
+```
+
+### 2(b) ***
+```{r question_2}
+x_1_2b <- df_2$x
+y_2b <- df_2$y
+p_est <- c(y_0, y_1)
+
+# NLM
+fn_nlm_2b <- function(p) {
+  y_hat <- (p[1] * x_1_2b) / (p[2] + x_1_2b)
+  return(sum((y_2b-y_hat)^2))
+}
+nlm_2b <- nlm(fn_nlm_2b, 
+              p=p_est, 
+              hessian=TRUE)
+cat("NLM", "\n", "- Iterations:", nlm_2b$iterations, 
+    "\n", "- Estimates:", nlm_2b$estimate, "\n")
+
+# NLS
+fn_nls_2b <- function(x_1, p) {
+  y_hat <- (p[1] * x_1) / (p[2] + x_1)
+  return(y_hat)
+}
+nls_2b <- nls(y ~ fn_nls_2b(x, p_est),
+              data = df_2,
+              start=list(p=p_est),
+              trace=TRUE)
+cat("NLS", "\n", "- Iterations:", nls_2b$iterations, 
+    "\n", "- Estimates:", nls_2b$estimate)
+```
+
+# Problem 3
+
+### 3(a)
+```{r}
+MSE <- nlm_2b$minimum/(length(y_2b) - length(nlm_2b$estimate))
+nlm_info_matrix <- nlm_2b$hessian/(2*MSE)
+cov_theta <- solve(nlm_info_matrix)
+SE <- sqrt(diag(cov_theta))
+
+cat("NLM:", "\n")
+cat("- Fisher Info Matrix:", "\n")
+cat("", nlm_info_matrix[1:2], "\n", nlm_info_matrix[3:4], "\n")
+cat("- Standard Errors:", "\n", "-- y_0:", SE[1], "\n", "-- y_1:", SE[2])
+```
+
+### 3(b) ***
+```{r}
+
+```
+
+### 3(c)
+```{r}
+# NLM CI
+nlm_estimate_1 <- nlm_2b$estimate[1]
+nlm_estimate_2 <- nlm_2b$estimate[2]
+
+CI_nlm_y_0 <- c(nlm_estimate_1 - 1.96 * SE[1], 
+                nlm_estimate_1 + 1.96 * SE[1])
+CI_nlm_y_1 <- c(nlm_estimate_2 - 1.96 * SE[2], 
+                nlm_estimate_2 + 1.96 * SE[2])
+
+# NLS CI
+####
+####
+####
+
+cat("NLM", "\n")
+cat("- y_0 CI:", CI_nlm_y_0, "\n")
+cat("- y_1 CI:", CI_nlm_y_1, "\n", "\n")
+cat("NLS", "\n")
+cat("- y_0 CI:", CI_nlm_y_0, "\n")
+cat("- y_1 CI:", CI_nlm_y_1, "\n")
+```
+
+# Problem 4
+
+### 4(a)
+```{r}
+
+```
