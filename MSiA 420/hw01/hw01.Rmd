@@ -34,25 +34,23 @@ p_est <- c(y_0, y_1)
 
 # NLM
 fn_nlm_2b <- function(p) {
-  y_hat <- (p[1] * x_1_2b) / (p[2] + x_1_2b)
-  return(sum((y_2b-y_hat)^2))
+  y_hat <- (p[1] * x_1_2b) / (p[2] + x_1_2b); return(sum((y_2b-y_hat)^2))
 }
 nlm_2b <- nlm(fn_nlm_2b, 
               p=p_est, 
               hessian=TRUE)
-cat("NLM", "\n", "- Iterations:", nlm_2b$iterations, 
+cat("NLM:", "\n", "- Iterations:", nlm_2b$iterations, 
     "\n", "- Estimates:", nlm_2b$estimate, "\n")
 
 # NLS
 fn_nls_2b <- function(x_1, p) {
-  y_hat <- (p[1] * x_1) / (p[2] + x_1)
-  return(y_hat)
-}
+  (p[1] * x_1) / (p[2] + x_1)
+  }
 nls_2b <- nls(y ~ fn_nls_2b(x, p_est),
               data = df_2,
               start=list(p=p_est),
               trace=TRUE)
-cat("NLS", "\n", "- Iterations:", nls_2b$iterations, 
+cat("NLS:", "\n", "- Iterations:", nls_2b$iterations, 
     "\n", "- Estimates:", nls_2b$estimate)
 ```
 
@@ -62,13 +60,13 @@ cat("NLS", "\n", "- Iterations:", nls_2b$iterations,
 ```{r}
 MSE <- nlm_2b$minimum/(length(y_2b) - length(nlm_2b$estimate))
 nlm_info_matrix <- nlm_2b$hessian/(2*MSE)
-cov_theta <- solve(nlm_info_matrix)
-SE <- sqrt(diag(cov_theta))
+cov_theta_3a <- solve(nlm_info_matrix)
+SE_3a <- sqrt(diag(cov_theta_3a))
 
 cat("NLM:", "\n")
 cat("- Fisher Info Matrix:", "\n")
 cat("", nlm_info_matrix[1:2], "\n", nlm_info_matrix[3:4], "\n")
-cat("- Standard Errors:", "\n", "-- y_0:", SE[1], "\n", "-- y_1:", SE[2])
+cat("- Standard Errors:", "\n", "-- y_0:", SE_3a[1], "\n", "-- y_1:", SE_3a[2])
 ```
 
 ### 3(b) ***
@@ -82,20 +80,20 @@ cat("- Standard Errors:", "\n", "-- y_0:", SE[1], "\n", "-- y_1:", SE[2])
 nlm_estimate_1 <- nlm_2b$estimate[1]
 nlm_estimate_2 <- nlm_2b$estimate[2]
 
-CI_nlm_y_0 <- c(nlm_estimate_1 - 1.96 * SE[1], 
-                nlm_estimate_1 + 1.96 * SE[1])
-CI_nlm_y_1 <- c(nlm_estimate_2 - 1.96 * SE[2], 
-                nlm_estimate_2 + 1.96 * SE[2])
+CI_nlm_y_0 <- c(nlm_estimate_1 - 1.96 * SE_3a[1], 
+                nlm_estimate_1 + 1.96 * SE_3a[1])
+CI_nlm_y_1 <- c(nlm_estimate_2 - 1.96 * SE_3a[2], 
+                nlm_estimate_2 + 1.96 * SE_3a[2])
 
 # NLS CI
 ####
 ####
 ####
 
-cat("NLM", "\n")
+cat("NLM:", "\n")
 cat("- y_0 CI:", CI_nlm_y_0, "\n")
 cat("- y_1 CI:", CI_nlm_y_1, "\n", "\n")
-cat("NLS", "\n")
+cat("NLS:", "\n")
 cat("- y_0 CI:", CI_nlm_y_0, "\n")
 cat("- y_1 CI:", CI_nlm_y_1, "\n")
 ```
@@ -103,6 +101,99 @@ cat("- y_1 CI:", CI_nlm_y_1, "\n")
 # Problem 4
 
 ### 4(a)
+```{r}
+library(boot)
+
+nlm_boot <- function(Z, i, theta0) {
+  Zboot <- Z[i,]
+  x1 <- Zboot[[2]]; y <- Zboot[[1]]
+  fn <- function(p) {y_hat <- (p[1] * x1) / (p[2] + x1); sum((y-y_hat)^2)}
+  out <- nlm(fn, p=theta0)
+  theta <- out$estimate
+  return(theta)  
+}
+
+nlm_boot_4a <- boot(df_2, nlm_boot, 20000, theta0=p_est)
+nlm_cov_4a <- cov(nlm_boot_4a$t)
+SE_4a <- sqrt(diag(nlm_cov_4a))
+
+par(mfrow = c(1, 2))
+hist(nlm_boot_4a$t[, 1], breaks = 100, main = "y_0 Histogram", xlab = "Estimate")
+hist(nlm_boot_4a$t[, 2], breaks = 100, main = "y_1 Histogram", xlab = "Estimate")
+```
+
+### 4(b) ***
+```{r}
+y_0_CI_4b <- c(mean(nlm_boot_4a$t[, 1]) - 1.96 * SE_4a[1], 
+               mean(nlm_boot_4a$t[, 1]) + 1.96 * SE_4a[1])
+y_1_CI_4b <- c(mean(nlm_boot_4a$t[, 2]) - 1.96 * SE_4a[2], 
+               mean(nlm_boot_4a$t[, 2]) + 1.96 * SE_4a[2])
+
+cat("Crude CI's:", "\n")
+cat("- y_0:", y_0_CI_4b, "\n")
+cat("- y_1:", y_1_CI_4b, "\n", "\n")
+```
+
+### 4(c) ***
+```{r}
+boot.ci(nlm_boot_4a, conf=c(.95), type=c("basic"))
+```
+
+### 4(d) ***
+*Explanation*
+
+# Question 5
+
+### 5 ***
+```{r}
+boot_5a <- function(Z, i, theta0, x_pred) {
+  Zboot <- Z[i,]
+  x1 <- Zboot[[2]]; y <- Zboot[[1]]
+  fn <- function(p) {y_hat <- (p[1] * x1) / (p[2] + x1); sum((y-y_hat)^2)}
+  out <- nlm(fn, p=theta0)
+  theta <- out$estimate
+  y_pred <- (theta[1] * x_pred) / (theta[2] + x_pred)
+}
+nlm_boot_5 <- boot(df_2, boot_5a, R=20000, theta0=p_est, x_pred=c(27))
+
+y_hat_0_5 <- nlm_boot_5$t0
+y_hat_boot <- nlm_boot_5$t
+MSE_5 <- MSE
+e_5 <- rnorm(nrow(y_hat_boot), mean = 0, sd = sqrt(MSE_5))
+y_boot <- y_hat_boot - e_5
+y_quant <- quantile(y_boot, prob = c(0.025, 0.975))
+# L <- 2 * y_hat_0_5 - y_quant[2]
+# U <- 2 * y_hat_0_5 - y_quant[1]
+#c(L, U)
+y_quant
+boot.ci(nlm_boot_5, conf=c(.95), type=c("basic"))
+```
+
+# Question 6
+
+### 6 ***
+```{r}
+n <- nrow(df_2)
+AIC_model_2a <- (-2*as.numeric(logLik(fit_2a))/n)+(2*3/n)
+
+fit_new <- lm(y ~ sqrt(x), data = df_2)
+AIC_model_new <- (-2*as.numeric(logLik(fit_new))/n)+(2*3/n)
+
+cat("AIC:", "\n", "- Linear Model:", AIC_model_2a, "\n", "- Square Root Model:", AIC_model_new)
+```
+
+AIC suggests the new, square root model is better.
+
+# Question 7
+
+### 7 ***
+```{r}
+
+```
+
+# Question 8
+
+### 8 ***
 ```{r}
 
 ```
