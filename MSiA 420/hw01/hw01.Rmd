@@ -12,9 +12,24 @@ knitr::opts_chunk$set(echo = FALSE)
 set.seed(420)
 ```
 
+# Problem 1
+
+$$
+Joint \ PDF \Rightarrow \ f(y;\mu,\sigma)=\frac{1}{(2\pi)^{\frac{n}{2}}\sigma^{n}}e^{\frac{-1}{2\sigma^{2}}\Sigma^{n}_{i=1}(y_{i}-\mu)^{2}}
+\\
+Likelihood \ function \Rightarrow \ ln(1)-(\frac{n}{2}ln(2\pi)+nln(\sigma))-\frac{1}{2\sigma^{2}}\Sigma^{n}_{i=1}(y_{i}-\mu)^{2}
+$$
+
+$$
+\frac{\partial(f(y;\mu,\sigma))}{\partial\sigma}=\frac{-n}{\sigma}+\frac{1}{\sigma^{3}}\Sigma^{n}_{i=1}(y_{i}-\mu)^{2} \Rightarrow \ Set = 0
+\\
+\Rightarrow\ \frac{\Sigma^{n}_{i=1}(y_{i}-\mu)^{2}}{\sigma^{3}}=\frac{n}{\sigma}
+\\
+\Rightarrow from \ class: \ \mu=\hat{y} \Rightarrow \sigma=\sqrt{\frac{\Sigma^{n}_{i=1}(y_{i}-\bar{y})^{2}}{n}}
+$$
+
 # Problem 2
 
-#### Data
 ```{r question_2data}
 library(readxl)
 df_2 = read_excel("HW1_data.xls")
@@ -23,13 +38,17 @@ df_2 = read_excel("HW1_data.xls")
 ### 2(a)
 ```{r question_2a}
 fit_2a <- lm(y ~ x, data = df_2)
-cat("Regression function:", 
-    "y =", round(fit_2a$coef[1], 2), "+", round(fit_2a$coef[2], 2), "* x", "\n")
+
 gamma_0 = 1/fit_2a$coef[1]
 gamma_1 = fit_2a$coef[2]/fit_2a$coef[1]
-cat("Regression:", "\n", 
-    "- gamma_0:", gamma_0, "\n", 
-    "- gamma_1:", gamma_1)
+
+cat("Linear Model", "\n", "---", "\n",
+    " Function:", "\n",
+    "  - y =", round(fit_2a$coef[1], 2), "+", round(fit_2a$coef[2], 2), "* x", "\n",
+    " Coefs:", "\n",
+    "  - gamma_0:", gamma_0, "\n", 
+    "  - gamma_1:", gamma_1, "\n")
+    
 ```
 
 ### 2(b)
@@ -70,13 +89,13 @@ nlm_info_matrix <- nlm_2b$hessian/(2*MSE)
 cov_theta_3a <- solve(nlm_info_matrix)
 SE_3a <- sqrt(diag(cov_theta_3a))
 
-cat("NLM:", "\n", 
-    "- Fisher Info Matrix:", "\n", "", 
+cat("NLM:", "\n", "---", "\n", 
+    " Fisher Info Matrix:", "\n", "", 
     nlm_info_matrix[1:2], "\n", "", 
     nlm_info_matrix[3:4], "\n", 
-    "- Standard Errors:", "\n", "", 
-    "-- gamma_0:", SE_3a[1], "\n", "", 
-    "-- gamma_1:", SE_3a[2])
+    " Standard Errors:", "\n", "", 
+    " - gamma_0:", SE_3a[1], "\n", "", 
+    " - gamma_1:", SE_3a[2])
 ```
 
 ### 3(b)
@@ -84,13 +103,13 @@ cat("NLM:", "\n",
 nls_cov_matrix <- vcov(nls_2b)
 SE_3b <- sqrt(diag(nls_cov_matrix))
 
-cat("NLS:", "\n", 
-    "- Covariance Matrix:", "\n", "", 
+cat("NLS:", "\n",  "---", "\n",
+    " Covariance Matrix:", "\n", "", 
     nls_cov_matrix[1:2], "\n", "", 
     nls_cov_matrix[3:4], "\n", 
-    "- Standard Errors:", "\n", "", 
-    "-- gamma_0:", SE_3b[1], "\n", "", 
-    "-- gamma_1:", SE_3b[2])
+    " Standard Errors:", "\n", "", 
+    " - gamma_0:", SE_3b[1], "\n", "", 
+    " - gamma_1:", SE_3b[2])
 ```
 
 The results agree with part a as they are very close.
@@ -183,7 +202,7 @@ cat("Bootstrapped Standard Errors:", "\n",
     "- gamma_1:", SE_4a[2])
 ```
 
-### 4(b) ***
+### 4(b)
 ```{r question_4b}
 # calculates lower and upper bounds of CI for first param in nlm_boot_4a
 gamma_0_CI_4b <- c(mean(nlm_boot_4a$t[, 1]) - 1.96 * SE_4a[1], mean(nlm_boot_4a$t[, 1]) + 1.96 * SE_4a[1])
@@ -192,22 +211,26 @@ gamma_0_CI_4b <- c(mean(nlm_boot_4a$t[, 1]) - 1.96 * SE_4a[1], mean(nlm_boot_4a$
 gamma_1_CI_4b <- c(mean(nlm_boot_4a$t[, 2]) - 1.96 * SE_4a[2], mean(nlm_boot_4a$t[, 2]) + 1.96 * SE_4a[2])
 
 # outputs calculated CIs with label indicating which parameter they correspond to
-cat("Crude CI's:", "\n", 
+cat("Crude 95% CI's:", "\n", 
     "- gamma_0:", gamma_0_CI_4b, "\n", 
     "- gamma_1:", gamma_1_CI_4b, "\n")
 ```
 
-### 4(c) ***
+### 4(c)
 ```{r question_4c}
-boot.ci(nlm_boot_4a, conf=c(.95), type=c("basic"))
+ci_4c_gamma_0 <- boot.ci(nlm_boot_4a, conf=c(.95), index = 1, type=c("basic"))
+ci_4c_gamma_1 <- boot.ci(nlm_boot_4a, conf=c(.95), index = 2, type=c("basic"))
+
+cat("Two-sided 95% CIs:", "\n", 
+    "- gamma_0:", ci_4c_gamma_0$basic[4:5], "\n",
+    "- gamma_1:", ci_4c_gamma_1$basic[4:5], "\n")
 ```
 
-### 4(d) ***
-*Explanation*
+### 4(d)
+They do agree. The histograms in part a suggest the gamma distributions are normally distributed. Because of this the "crude" CI calculated in part b will be roughly correct. This is why it is close to the CI calculated using the boot.ci function in part c.
 
 # Question 5
 
-### 5 ***
 ```{r question_5}
 # Define a function to perform a single iteration of the bootstrap method
 boot_5a <- function(Z, i, theta0, x_pred) {
@@ -259,17 +282,16 @@ cat("Predictable CI:", "\n",
     "- U:", ci_5[2])
 ```
 
-I'm not sure.
+I think the prediction interval better represents an interval that would contain future events. The prediction interval contains the confidence interval. Because of this it will always be larger to account for the extra noise. Because the interval is larger, it will better represent the interval we can be 95% sure will contain the prediction.
 
 # Question 6
 
-### 6 ***
 ```{r question_6}
 # assign number of rows in 'df_2' to 'n'
 n <- nrow(df_2) 
 
 # calculate AIC for linear model 'fit_2a'
-AIC_model_2a <- (-2*as.numeric(logLik(fit_2a))/n)+(2*3/n) 
+AIC_model_2a <- (-2*as.numeric(logLik(nls_2b))/n)+(2*3/n) 
 
 # fit new model to data using sqrt of 'x' as predictor
 fit_new <- lm(y ~ sqrt(x), data = df_2) 
@@ -278,15 +300,14 @@ AIC_model_new <- (-2*as.numeric(logLik(fit_new))/n)+(2*3/n)
 
 # output AIC values of both models
 cat("AIC:", "\n", 
-    "- Linear Model:", AIC_model_2a, "\n", 
+    "- NLS Model:", AIC_model_2a, "\n", 
     "- Square Root Model:", AIC_model_new)
 ```
 
-AIC suggests the new, square root model is better.
+AIC suggests the old NSL model is better.
 
 # Question 7
 
-### 7
 ```{r question_7}
 # K-fold indices
 CVInd <- function(n,K) {  #n is sample size; K is number of parts; returns K-length list of indices for each part
@@ -317,7 +338,9 @@ for (j in 1:Nrep) {
   for (k in 1:K) {
     
      #the first model to compare
-     out<-lm(y ~ x, data = df_2[-Ind[[k]],]) 
+     out<-nls(y ~ fn_nls_2b(x, p), 
+              data = df_2[-Ind[[k]],],
+              start=list(p=p_est)) 
      yhat[Ind[[k]],1]<-as.numeric(predict(out,df_2[Ind[[k]],]))
      
      #the second model to compare
@@ -333,7 +356,7 @@ MSEsd <- apply(MSE,2,sd) # SD of mean square CV error
 r2<-1-MSEAve/var(y) # CV r^2
 
 # Print results nicely
-cat("Linear Model", "\n", 
+cat("NLS Model", "\n", 
     "- Average MSE:", MSEAve[1], "\n", 
     "- Standard Deviation of MSE:", MSEsd[1], "\n")
 cat("Square Root Model", "\n", 
@@ -341,15 +364,14 @@ cat("Square Root Model", "\n",
     "- Standard Deviation of MSE:", MSEsd[2], "\n")
 ```
 
-Cross validation suggests the square root model performs better than the 
-linear model.
+Cross validation suggests the NLS model performs better than the 
+square root model.
 
 # Question 8
 
-### 8
 ```{r question_8}
 # fit the first model
-model1 <- fit_2a
+model1 <- nls_2b
 
 # fit the second model
 model2 <- fit_new
@@ -362,12 +384,10 @@ residuals2 <- data.frame(x = df_2$x, y = residuals(model2))
 par(mfrow = c(1, 2)) 
 
 # create the first plot of residuals vs x for the first model
-plot(residuals1$x, residuals1$y, xlab = "X", ylab = "Residuals", main = "Residuals vs X for Model 1")
+plot(residuals1$x, residuals1$y, xlab = "X", ylab = "Residuals", main = "Residuals vs X for NLS")
 
 # create the second plot of residuals vs x for the second model
-plot(residuals2$x, residuals2$y, xlab = "X", ylab = "Residuals", main = "Residuals vs X for Model 2")
+plot(residuals2$x, residuals2$y, xlab = "X", ylab = "Residuals", main = "Residuals vs X for NLS")
 ```
 
-The residual plots for the square root model seem more appropriate than the linear model because the residuals vary about half as much (3 vs 1.5). This agrees with out conclusions from questions 6 and 7 above.
-
-Over all, neither model would pass the OLS assumptions. If we were to take this analysis further, we would need to find a model that better fits the OLS assumptions.
+The residual plots for the NLS model seems more appropriate than the square root model. This is because the residuals for the NLS model show no pattern whereas the square root residual plot looks like a quadratic function. This agrees with out conclusions from questions 6 and 7 above.
