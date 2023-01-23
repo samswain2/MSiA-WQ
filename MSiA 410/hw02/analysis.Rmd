@@ -1,0 +1,130 @@
+---
+title: "hw02 Analysis"
+author: "Samuel Swain"
+date: "2023-01-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Analysis
+
+### Data
+```{r}
+library(readxl)
+library(randomForest)
+library(glmnet)
+library(caret)
+set.seed(410)
+
+df <- read_excel('ElectiveSurgeryData.xlsx')
+df$DOW <- factor(df$DOW)
+
+# create a vector of new column names
+new_names <- c("SurgDate", "DOW", "T28", "T21", "T14", 
+               "T13", "T12", "T11", "T10", "T9", 
+               "T8", "T7", "T6", "T5", "T4", 
+               "T3", "T2", "T1", "Actual")
+
+# loop through the columns of the dataframe and change the names
+for (i in 1:ncol(df)) {
+  colnames(df)[i] <- new_names[i]
+}
+
+df <- df[-c(34, 54, 55, 59), ]
+
+data_included = 3:12
+
+train_ind <- sample(1:nrow(df), nrow(df)*0.8)
+train <- df[train_ind, ]
+test <- df[-train_ind, ]
+
+train_standardized <- preProcess(train[, data_included], method = c("center","scale"))
+train_x <- predict(train_standardized, train[ ,data_included])
+test_x <- predict(train_standardized, test[ ,data_included])
+
+train_x_matrix <- as.matrix(train_x)
+train_y_matrix <- train[ ,19]$Actual
+test_x_matrix <- as.matrix(test_x)
+test_y_matrix <- test[ ,19]$Actual
+```
+
+### Model
+
+```{r}
+par(mfrow = c(2, 2))
+plot(Actual ~ T28, data = df, ylab = "Actual # Cases", xlab = "Cases scheduled at T - 28 Days")
+plot(Actual ~ T14, data = df, ylab = "Actual # Cases", xlab = "Cases scheduled at T - 14 Days")
+plot(Actual ~ T7, data = df, ylab = "Actual # Cases", xlab = "Cases scheduled at T - 7 Days")
+plot(Actual ~ T1, data = df, ylab = "Actual # Cases", xlab = "Cases scheduled at T - 1 Days")
+```
+
+```{r}
+round(cor(df[3:19]), 2)
+```
+
+```{r}
+summary(lm(Actual ~ DOW, data = train))
+```
+
+```{r}
+# - SurgDate - DOW - T1
+fit_init <- lm(Actual ~ T28 + T21 + T14 + T13 + T12 + T11 + T10 + T9 + T8 + T7, 
+               data = train)
+
+rf_model <- randomForest(Actual ~ T28 + T21 + T14 + T13 + T12 + T11 + T10 + T9 + T8 + T7
+                         , data = train, method = "regression")
+
+lasso_model <- glmnet(train_x_matrix, train_y_matrix, alpha = 1)
+
+summary(fit_init)
+
+fit_init$coefficients
+```
+
+```{r}
+# make predictions on the test data
+test_predictions <- predict(rf_model, newdata = test)
+
+# calculate the MSE
+test_mse <- mean((test_predictions - test$Actual)^2)
+
+# calculate the total possible error
+total_possible_error <- sum((test$Actual - mean(test$Actual))^2)
+
+# compare the test MSE with total possible error
+print(paste("Test MSE: ", test_mse))
+print(paste("Total Possible Error: ", total_possible_error))
+```
+
+```{r}
+# make predictions on the test data
+test_predictions <- predict(fit_init, newdata = test)
+
+# calculate the MSE
+test_mse <- mean((test_predictions - test$Actual)^2)
+
+# calculate the total possible error
+total_possible_error <- sum((test$Actual - mean(test$Actual))^2)
+
+# compare the test MSE with total possible error
+print(paste("Test MSE: ", test_mse))
+print(paste("Total Possible Error: ", total_possible_error))
+```
+
+```{r}
+# make predictions on the test data
+test_predictions <- predict(lasso_model, newx = test_x_matrix)
+
+# calculate the MSE
+test_mse <- mean((test_predictions - test$Actual)^2)
+
+# calculate the total possible error
+total_possible_error <- sum((test$Actual - mean(test$Actual))^2)
+
+# compare the test MSE with total possible error
+print(paste("Test MSE: ", test_mse))
+print(paste("Total Possible Error: ", total_possible_error))
+```
