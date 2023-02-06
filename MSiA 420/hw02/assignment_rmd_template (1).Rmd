@@ -1,0 +1,100 @@
+---
+title: "Assignment template"
+author: "Name"
+date: "Date"
+output:
+  pdf_document:
+    fig_caption: yes
+    highlight: tango
+    fig_width: 6
+    fig_height: 4.5
+---
+
+This document is a Rmarkdown template for the assignments. In particular, this contains instructions to 
+- display your code in the compiled document
+- adjust figure width and height (the one specified above are the default ones. can be changed for individual sections)
+
+The setup is slightly different from the default setting. I have changed `echo` to `FALSE`. This means that the code will not be displayed at the spot by default. However, any print statements or plots will be displayed. Your code should be included only in the appendix. Refer to the appendix section for displaying all code.  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,comment="  ")
+```
+
+```{r common}
+# define functions used globally which are not dependent on any question specifics
+# instead of reloading them each time
+# you can also use this space to load R packages
+# or custom scripts sourced from a R file
+# for example, I have included the CV_ind function
+
+CVInd <- function(n,K) { 
+  # n is sample size; K is number of parts; 
+  # returns K-length list of indices for each part
+  m<-floor(n/K) #approximate size of each part
+  r<-n-m*K
+  I<-sample(n,n) #random reordering of the indices
+  Ind<-list() #will be list of indices for all K parts
+  length(Ind)<-K
+  for (k in 1:K) {
+    if (k <= r) kpart <- ((m+1)*(k-1)+1):((m+1)*k)
+    else kpart<-((m+1)*r+m*(k-r-1)+1):((m+1)*r+m*(k-r))
+    Ind[[k]] <- I[kpart] #indices for kth part of data
+  }
+  Ind
+}
+```
+
+# Question 1
+
+```{r q1_load_data}
+
+########### QUESTION 1 begins here ###################
+# loading data for question 1
+data(mtcars)
+head(mtcars)
+```
+
+
+## (a)
+
+```{r q1_a_model}
+# eg:training linear model mpg as a function of the other predictors
+model <- lm(mpg~.,data=mtcars)
+summary(model)
+```
+
+## (b)
+
+```{r q1_b_resid_plots, fig.width=9,fig.height=4,fig.cap='Residual diagnostic plots for linear model'}
+# plots
+# you can change plot width and height using fig.width, and fig.height
+# also do specify the figure caption in fig.cap
+# eg: plotting residual vs fitted and normal Q-Q 
+par(mfrow=c(1,2))
+plot(model,which=c(1,2))
+```
+
+
+
+# Question 2
+
+```{r q2_data}
+
+########### QUESTION 2 begins here ################### 
+# ...
+```
+
+
+# Appendix
+
+This section is to be used for including your R code. The following lines of code will take care of it. Please make sure to comment your code appropriately - in particular, demarcating codes belonging to different questions. Among other things, it will be easier for you to debug your own code.
+
+```{r getlabels}
+labs = knitr::all_labels()
+labs = labs[!labs %in% c("setup","getlabels", "allcode")]
+```
+
+```{r allcode,ref.label=labs,eval=FALSE,echo=TRUE}
+```
+
+

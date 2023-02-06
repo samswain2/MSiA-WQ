@@ -1,0 +1,284 @@
+---
+title: "hw01"
+author: "Samuel Swain"
+date: "2023-01-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# Set seed
+set.seed(420)
+```
+
+```{r common}
+# Libraries
+library(boot)
+library(nnet)
+library(glmnet)
+library(ALEPlot)
+library(rpart)
+
+# Cross Validation
+CVInd <- function(n,K) { 
+  # n is sample size; K is number of parts; 
+  # returns K-length list of indices for each part
+  m<-floor(n/K) #approximate size of each part
+  r<-n-m*K
+  I<-sample(n,n) #random reordering of the indices
+  Ind<-list() #will be list of indices for all K parts
+  length(Ind)<-K
+  for (k in 1:K) {
+    if (k <= r) kpart <- ((m+1)*(k-1)+1):((m+1)*k)
+    else kpart<-((m+1)*r+m*(k-r-1)+1):((m+1)*r+m*(k-r))
+    Ind[[k]] <- I[kpart] #indices for kth part of data
+  }
+  Ind
+}
+
+# Standardize Function
+standardize_predictors <- function(data) {
+  predictors <- data
+  standardized_predictors <- scale(predictors)
+  data <- standardized_predictors
+  return(data)
+}
+```
+
+# Problem 1
+```{r hw_data, message=FALSE}
+library(readxl)
+df_1 = read_excel("HW2_data.xls")
+df_1 = df_1[, -c(1)]
+
+# Vars
+y<-df_1$cost
+X_1 = df_1[, -c(1)]
+df_1[, c(2, 3, 4, 5, 6, 7, 8, 9)] = standardize_predictors(X_1)
+```
+
+### 1(a)
+```{r question_1a}
+fit_1a <- lm(cost ~ age + gend + intvn + drugs + ervis, data = df_1)
+
+##Now use multiple reps of CV to compare Neural Nets and linear reg models###
+Nrep<-5 #number of replicates of CV
+K<-3  #K-fold CV on each replicate
+n.models = 1 #number of different models to fit
+n=nrow(df_1)
+y<-df_1$cost
+yhat=matrix(0,n,n.models)
+MSE<-matrix(0,Nrep,n.models)
+RMSE<-matrix(0,Nrep,n.models)
+for (j in 1:Nrep) {
+  Ind<-CVInd(n,K)
+  for (k in 1:K) {
+    out<-lm(cost ~ age + gend + intvn + drugs + ervis, data = df_1[-Ind[[k]],])
+    yhat[Ind[[k]],1]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+  } #end of k loop
+  MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
+  RMSE[j,]=apply(yhat,2,function(x) sqrt(sum((y-x)^2))/n)
+} #end of j loop
+MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
+MSEsd <- apply(MSE,2,sd)   #SD of mean square CV error
+RMSEAve<- apply(RMSE,2,mean) #averaged mean square CV error
+RMSEsd <- apply(RMSE,2,sd)   #SD of mean square CV error
+
+cat("MSE:", "\n", "- Average:", MSEAve, "\n", "- SD", MSEsd, "\n")
+cat("RMSE:", "\n", "- Average:", RMSEAve, "\n", "- SD", RMSEsd)
+```
+
+As we can see above, the average error is `r RMSEAve` per prediction with a standard deviation of `r RMSEsd`. For about one fourth of the data, that is the entire cost to insure the customer. The predictive power of this model can definitely be improved or we can explore other models that will do a better job at predicting cost.
+
+### 1(b)
+```{r question_1b}
+summary(fit_1a)
+```
+
+Total number of interventions and number emergency room visits seem to have the highest effect on the cost of the subscriber. Increasing intvn by only one will increase the cost of the subscriber by about 812.08 whereas increasing ervis by just one will also increase the cost of the subscriber by about 376.53 dollars.
+
+### 1(c)
+```{r question_1c}
+par(mfrow = c(2,2))
+plot(fit_1a)
+```
+
+As we can see from the plots above, there are a lot of problems with using a linear model to attain the relationship between the features and the cost. The problems are listed below:
+- Heteroskedasticity based on the Residuals vs Fitted plot
+- Non-normally distributed residuals based on the Normal Q-Q plot
+- A few outliers based on the Residuals vs Leverage plot
+
+# Problem 2
+
+### 2(a)
+```{r question_2a}
+##Now use multiple reps of CV to compare Neural Nets and linear reg models###
+Nrep<-3 #number of replicates of CV
+K<-10  #K-fold CV on each replicate
+n.models = 4 #number of different models to fit
+n=nrow(df_1)
+y<-df_1$cost
+yhat=matrix(0,n,n.models)
+MSE<-matrix(0,Nrep,n.models)
+for (j in 1:Nrep) {
+  Ind<-CVInd(n,K)
+  for (k in 1:K) {
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=15, decay=.5, maxit=1000, trace=F)
+    yhat[Ind[[k]],1]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=20, decay=.1, maxit=1000, trace=F)
+    yhat[Ind[[k]],2]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=25, decay=.01, maxit=1000, trace=F)
+    yhat[Ind[[k]],3]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=30, decay=0, maxit=1000, trace=F)
+    yhat[Ind[[k]],4]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+  } #end of k loop
+  MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
+} #end of j loop
+# MSE
+MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
+MSEsd <- apply(MSE,2,sd)  #SD of mean square CV error
+
+cat("Best NNet:", "\n", "Model:", which.min(MSEAve), "\n", "Decay: 0.10", "\n", "Size: 20")
+```
+
+### 2(b)
+```{r question_2b}
+best_nnet_2b <- nnet(cost~., df_1, linout=T, skip=F, size=20, decay=.1, maxit=1000, trace=F)
+```
+
+The best Neural Net attained above has a size of 20 and a decay rate of 0.10. In terms of predictive power, I think the model is not very good. With an average CV MSE of `r MSEAve[2]`, it performs worse than the linear model with even just two variables in it. The linear model has an average CV MSE of about three hundred thousand.
+
+### 2(c)
+```{r question_2c}
+df_newdata = df_1[2:9]
+df_newdata <- as.data.frame(df_newdata)
+
+yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
+
+par(mfrow=c(2,4))
+for (j in 1:8)  {ALEPlot(df_newdata, best_nnet_2b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
+  rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
+par(mfrow=c(1,1))
+```
+
+Below are the top three features ranked by strength of effect:
+- Intervention (intvn): Positive
+- Complications (comp): Positive for the first 25% and then negative for the last 75%
+- Drugs (drugs): Negative for the first 20% and then negative for the last 80%
+
+### 2(d)
+```{r, question_2d}
+# Extract the fitted values and residuals
+fit_vals <- fitted(best_nnet_2b)
+residuals <- residuals(best_nnet_2b)
+
+# Plot the fitted values against the residuals
+plot(fit_vals, residuals)
+abline(h=0, col="red")
+```
+
+Looking at the fitted versus residual plot above, we can see pretty much all of the non linearity has been captured besides the patters going on at the beginning.
+
+# Problem 3
+
+### 3(a)
+```{r question_3a}
+##Now use multiple reps of CV to compare Neural Nets and linear reg models###
+Nrep<-3 #number of replicates of CV
+K<-10  #K-fold CV on each replicate
+n.models = 4 #number of different models to fit
+n=nrow(df_1)
+y<-df_1$cost
+yhat=matrix(0,n,n.models)
+MSE<-matrix(0,Nrep,n.models)
+for (j in 1:Nrep) {
+  Ind<-CVInd(n,K)
+  for (k in 1:K) {
+    control <- rpart.control(minbucket = 10, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],1] <- as.numeric(predict(out,df_1[Ind[[k]],]))
+    control <- rpart.control(minbucket = 10, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],2]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    control <- rpart.control(minbucket = 15, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],3]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    control <- rpart.control(minbucket = 20, cp = 0.1, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],4]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+  } #end of k loop
+  MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
+} #end of j loop
+# MSE
+MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
+MSEsd <- apply(MSE,2,sd)  #SD of mean square CV error
+
+cat("Best Tree:", "\n", "Model:", which.min(MSEAve), "\n", "Minbucket:", c(10, 10, 15, 20)[which.min(MSEAve)], "\n", "CP:", c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)])
+```
+
+### 3(b)
+```{r question_3b}
+control <- rpart.control(minbucket = c(10, 10, 15, 20)[which.min(MSEAve)], cp = c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)], maxsurrogate = 0, usesurrogate = 0, xval = 10)
+best_tree_3b <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+
+cat("MSE:", "\n", "- Average:", MSEAve[which.min(MSEAve)], "\n", "- SD", MSEsd[which.min(MSEAve)], "\n")
+```
+
+The best Tree attained above has a min-bucket of `r c(10, 10, 15, 20)[which.min(MSEAve)]` and a decay rate of `r c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)]`. In terms of predictive power, I think the model is not bad. It's almost better at predicting than the linear and a lot better than the N Net model given average CV MSE of `r MSEAve[which.min(MSEAve)]`.
+
+### 3(c)
+```{r question_3c}
+yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
+
+par(mfrow=c(2,4))
+for (j in 1:8)  {ALEPlot(df_newdata, best_tree_3b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
+  rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
+par(mfrow=c(1,1))
+```
+
+As we can see above, intervention (intvn) is the only important variable when fitting the tree. The cost of the subscriber goes up for each additional intervention until two, then the effect levels off.
+
+### 3(d)
+```{r}
+# Get fitted values and residuals
+fitted_values <- predict(best_tree_3b)
+residuals <- df_1[-Ind[[k]], "cost"] - fitted_values
+
+# Plot fitted versus residuals
+plot(fitted_values, residuals$cost, xlab = "Fitted Values", ylab = "Residuals")
+abline(0, 0)
+```
+
+The pattern of this tree Fitted vs Residual plot is similar to the N Net plot. It seems to have captured most of the non linearity. There is no trend down or up as we increase fitted  values, only an increase in the variance.
+
+### 3(e)
+
+I would use the linear model as it produces the lowest MSE out of the three models. As the professor said in class, the assumptions are only for doing fancy statistical proofs with the model. If it predicts well then it is usable! That's why I will go with the linear model. As we were instructed to not alter the variables in the beginning, I'm sure we could fix a good amount of the assumptions as well. This would make the linear model even better than its current state.
+
+# Question 4
+
+### 4(a)
+```{r}
+
+```
+
+### 4(b)
+```{r}
+
+```
+
+### 4(c)
+```{r}
+
+```
+
+### 4(d)
+```{r}
+
+```
+
+# Appendix
+### Commented out code is the output used to attain the results above. Commended to shorted final submission pdf.
