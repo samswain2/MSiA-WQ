@@ -1,7 +1,7 @@
 ---
-title: "hw01"
+title: "hw02"
 author: "Samuel Swain"
-date: "2023-01-20"
+date: "2023-02-10"
 output:
   pdf_document: default
   html_document: default
@@ -55,7 +55,7 @@ df_1 = read_excel("HW2_data.xls")
 df_1 = df_1[, -c(1)]
 
 # Vars
-y<-df_1$cost
+df_1$cost<-log(df_1$cost)
 X_1 = df_1[, -c(1)]
 df_1[, c(2, 3, 4, 5, 6, 7, 8, 9)] = standardize_predictors(X_1)
 ```
@@ -87,11 +87,10 @@ MSEsd <- apply(MSE,2,sd)   #SD of mean square CV error
 RMSEAve<- apply(RMSE,2,mean) #averaged mean square CV error
 RMSEsd <- apply(RMSE,2,sd)   #SD of mean square CV error
 
-cat("MSE:", "\n", "- Average:", MSEAve, "\n", "- SD", MSEsd, "\n")
-cat("RMSE:", "\n", "- Average:", RMSEAve, "\n", "- SD", RMSEsd)
+cat("MSE:", "\n", "- Average:", MSEAve, "\n", "- SD", MSEsd)
 ```
 
-As we can see above, the average error is `r RMSEAve` per prediction with a standard deviation of `r RMSEsd`. For about one fourth of the data, that is the entire cost to insure the customer. The predictive power of this model can definitely be improved or we can explore other models that will do a better job at predicting cost.
+As we can see above, the average error is `r MSEAve` per prediction with a standard deviation of `r MSEsd`. The predictive power of this model can definitely be improved or we can explore other models that will do a better job at predicting cost.
 
 ### 1(b)
 ```{r question_1b}
@@ -107,8 +106,7 @@ plot(fit_1a)
 ```
 
 As we can see from the plots above, there are a lot of problems with using a linear model to attain the relationship between the features and the cost. The problems are listed below:
-- Heteroskedasticity based on the Residuals vs Fitted plot
-- Non-normally distributed residuals based on the Normal Q-Q plot
+- Non-linearity of the data based on the Residuals vs Fitted plot
 - A few outliers based on the Residuals vs Leverage plot
 
 # Problem 2
@@ -141,15 +139,21 @@ for (j in 1:Nrep) {
 MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
 MSEsd <- apply(MSE,2,sd)  #SD of mean square CV error
 
-cat("Best NNet:", "\n", "Model:", which.min(MSEAve), "\n", "Decay: 0.10", "\n", "Size: 20")
+cat("Best NNet:", "\n", "Model:", which.min(MSEAve), "\n", 
+    "Decay:", c(15, 20, 25, 30)[which.min(MSEAve)], "\n", 
+    "Size:", c(0.5, 0.1, 0.01, 0)[which.min(MSEAve)])
 ```
 
 ### 2(b)
 ```{r question_2b}
-best_nnet_2b <- nnet(cost~., df_1, linout=T, skip=F, size=20, decay=.1, maxit=1000, trace=F)
+best_nnet_2b <- nnet(cost~., df_1, linout=T, skip=F, 
+                     size=c(15, 20, 25, 30)[which.min(MSEAve)], 
+                     decay=c(0.5, 0.1, 0.01, 0)[which.min(MSEAve)], 
+                     maxit=1000, trace=F)
+cat("MSE:", "\n", "- Average:", MSEAve[which.min(MSEAve)], "\n", "- SD", MSEsd[which.min(MSEAve)])
 ```
 
-The best Neural Net attained above has a size of 20 and a decay rate of 0.10. In terms of predictive power, I think the model is not very good. With an average CV MSE of `r MSEAve[2]`, it performs worse than the linear model with even just two variables in it. The linear model has an average CV MSE of about three hundred thousand.
+The best Neural Net attained above has a size of `r c(15, 20, 25, 30)[which.min(MSEAve)]` and a decay rate of `r c(0.5, 0.1, 0.01, 0)[which.min(MSEAve)]`. In terms of predictive power, I think the model is very good. With an average CV MSE of `r MSEAve[2]`, it performs better than the linear model.
 
 ### 2(c)
 ```{r question_2c}
@@ -180,7 +184,7 @@ plot(fit_vals, residuals)
 abline(h=0, col="red")
 ```
 
-Looking at the fitted versus residual plot above, we can see pretty much all of the non linearity has been captured besides the patters going on at the beginning.
+Looking at the fitted versus residual plot above, we can see pretty much all of the non linearity has been captured.
 
 # Problem 3
 
@@ -227,7 +231,7 @@ best_tree_3b <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = contr
 cat("MSE:", "\n", "- Average:", MSEAve[which.min(MSEAve)], "\n", "- SD", MSEsd[which.min(MSEAve)], "\n")
 ```
 
-The best Tree attained above has a min-bucket of `r c(10, 10, 15, 20)[which.min(MSEAve)]` and a decay rate of `r c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)]`. In terms of predictive power, I think the model is not bad. It's almost better at predicting than the linear and a lot better than the N Net model given average CV MSE of `r MSEAve[which.min(MSEAve)]`.
+The best Tree attained above has a min-bucket of `r c(10, 10, 15, 20)[which.min(MSEAve)]` and a decay rate of `r c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)]`. In terms of predictive power, I think the model is really good. It's better at predicting than the linear and N Net model given average CV MSE of `r MSEAve[which.min(MSEAve)]`.
 
 ### 3(c)
 ```{r question_3c}
@@ -239,10 +243,10 @@ for (j in 1:8)  {ALEPlot(df_newdata, best_tree_3b, pred.fun=yhat, J=j, K=50, NA.
 par(mfrow=c(1,1))
 ```
 
-As we can see above, intervention (intvn) is the only important variable when fitting the tree. The cost of the subscriber goes up for each additional intervention until two, then the effect levels off.
+As we can see above, intervention (intvn) is again the most important variable when fitting the tree. The cost of the subscriber goes up for each additional intervention until two, then the effect levels off. Another important variable is comorb. We can see that the effect is not as big as intvn but it still explains about 1.5 total variation in cost. 
 
 ### 3(d)
-```{r}
+```{r question_3d}
 # Get fitted values and residuals
 fitted_values <- predict(best_tree_3b)
 residuals <- df_1[-Ind[[k]], "cost"] - fitted_values
@@ -252,33 +256,124 @@ plot(fitted_values, residuals$cost, xlab = "Fitted Values", ylab = "Residuals")
 abline(0, 0)
 ```
 
-The pattern of this tree Fitted vs Residual plot is similar to the N Net plot. It seems to have captured most of the non linearity. There is no trend down or up as we increase fitted  values, only an increase in the variance.
+The pattern of this tree Fitted vs Residual plot is similar to the N Net plot. It seems to have captured most of the non linearity. There is no trend down or up as we increase fitted values.
 
 ### 3(e)
 
-I would use the linear model as it produces the lowest MSE out of the three models. As the professor said in class, the assumptions are only for doing fancy statistical proofs with the model. If it predicts well then it is usable! That's why I will go with the linear model. As we were instructed to not alter the variables in the beginning, I'm sure we could fix a good amount of the assumptions as well. This would make the linear model even better than its current state.
+I would use the tree model as it produces the lowest MSE out of the three models. It also is able to capture all of the non linearity in the data.
 
 # Question 4
 
-### 4(a)
-```{r}
+```{r data_4, message=FALSE}
+library(readxl)
+df_4 = read_excel("HW2_data.xls", sheet = "FGL data")
+df_4 = df_4[, -c(1)]
+df_4[, -c(10)] = scale(df_4[, -c(10)])
+df_4$type <- as.factor(df_4$type)
+```
 
+### 4(a)
+```{r question_4a}
+Nrep <- 3 #number of replicates of CV
+K <- 10  #K-fold CV on each replicate
+n.models <- 4 #number of different models to fit
+n <- nrow(df_4)
+y <- df_4$type
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
+
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=10, decay=.5, maxit=1000, trace=F)
+    yhat[Ind[[k]], 1] <- predict(out, df_4[Ind[[k]],], type="class")
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=15, decay=.5, maxit=1000, trace=F)
+    yhat[Ind[[k]], 2] <- predict(out, df_4[Ind[[k]],], type="class")
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=20, decay=.5, maxit=1000, trace=F)
+    yhat[Ind[[k]], 3] <- predict(out, df_4[Ind[[k]],], type="class")
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=25, decay=.5, maxit=1000, trace=F)
+    yhat[Ind[[k]], 4] <- predict(out, df_4[Ind[[k]],], type="class")
+  } #end of k loop
+  Accuracy[j,] <- apply(yhat, 2, function(x) mean(x == y)) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+cat("Best NNet:", "\n", "Model:", which.max(AccuracyAve), "\n", 
+    "Decay:", c(15, 20, 25, 30)[which.max(AccuracyAve)], "\n", 
+    "Size:", c(0.5, 0.1, 0.01, 0)[which.max(AccuracyAve)], "\n",
+    "Accuracy:", max(AccuracyAve))
 ```
 
 ### 4(b)
-```{r}
+```{r question_4b}
+Nrep <- 3 #number of replicates of CV
+K <- 10  #K-fold CV on each replicate
+n.models <- 4 #number of different models to fit
+n <- nrow(df_4)
+y <- y <- as.numeric(df_4$type)
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
 
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    control <- rpart.control(minbucket = 3, cp = 0.00001, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],1] <- predict(out,df_4[Ind[[k]],], type = "class")
+    control <- rpart.control(minbucket = 5, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],2]<-predict(out,df_4[Ind[[k]],], type = "class")
+    control <- rpart.control(minbucket = 7, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],3]<-predict(out,df_4[Ind[[k]],], type = "class")
+    control <- rpart.control(minbucket = 10, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],4]<-predict(out,df_4[Ind[[k]],], type = "class")
+  } #end of k loop
+  Accuracy[j,] <- apply(yhat, 2, function(x) mean(x == y)) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+cat("Best Tree:", "\n", "Model:", which.max(AccuracyAve), "\n", 
+    "Decay:", c(0.00001, 0.0001, 0.001, 0.01)[which.max(AccuracyAve)], "\n", 
+    "Size:", c(3, 5, 7, 10)[which.max(AccuracyAve)], "\n",
+    "Accuracy:", max(AccuracyAve))
 ```
 
 ### 4(c)
-```{r}
+```{r question_4c}
+Nrep <- 3 #number of replicates of CV
+K <- 3  #K-fold CV on each replicate
+n.models <- 1 #number of different models to fit
+n <- nrow(df_4)
+y <- as.numeric(df_4$type)
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
 
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    model4 <- multinom(type~., df_4[-Ind[[k]],], maxit=1000, trace=F)
+    yhat[Ind[[k]],1] <- predict(model4, df_4[Ind[[k]],], type = "class")
+  } #end of k loop
+  Accuracy[j,] <- apply(yhat, 2, function(x) mean(x == y)) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+cat("MNLogistic Accuracy:", AccuracyAve)
 ```
+
+As we can see, the accuracy of the MN logit model is pretty far off the tree but closer to the nnet.
 
 ### 4(d)
-```{r}
 
-```
+The logit model is more interpretable than the nnet but about the same as the tree model. The only extra piece of information the logit model gives us is access to the exact change in likelihoods / probabilities from looking at the coefficients. The tree model has a higher cross validation accuracy as well as similar interpretability. We should choose the tree model over the nnet all day. When looking at the MNlogit model we see that it gets about $12%$ less predictions correct. Given the slightly higher interpretability of the MNlogit model versus the much higher prediction accuracy of the Tree model, using the Tree model will be more appropriate for predicting glass type.
 
 # Appendix
 ### Commented out code is the output used to attain the results above. Commended to shorted final submission pdf.
