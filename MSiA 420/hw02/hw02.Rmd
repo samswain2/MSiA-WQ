@@ -201,16 +201,16 @@ MSE<-matrix(0,Nrep,n.models)
 for (j in 1:Nrep) {
   Ind<-CVInd(n,K)
   for (k in 1:K) {
-    control <- rpart.control(minbucket = 10, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    control <- rpart.control(minbucket = 10, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
     yhat[Ind[[k]],1] <- as.numeric(predict(out,df_1[Ind[[k]],]))
-    control <- rpart.control(minbucket = 10, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    control <- rpart.control(minbucket = 10, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
     yhat[Ind[[k]],2]<-as.numeric(predict(out,df_1[Ind[[k]],]))
-    control <- rpart.control(minbucket = 15, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    control <- rpart.control(minbucket = 15, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
     yhat[Ind[[k]],3]<-as.numeric(predict(out,df_1[Ind[[k]],]))
-    control <- rpart.control(minbucket = 20, cp = 0.1, maxsurrogate = 0, usesurrogate = 0, xval = 1)
+    control <- rpart.control(minbucket = 20, cp = 0.1, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
     yhat[Ind[[k]],4]<-as.numeric(predict(out,df_1[Ind[[k]],]))
   } #end of k loop
@@ -270,6 +270,8 @@ df_4 = read_excel("HW2_data.xls", sheet = "FGL data")
 df_4 = df_4[, -c(1)]
 df_4[, -c(10)] = scale(df_4[, -c(10)])
 df_4$type <- as.factor(df_4$type)
+
+set.seed(420)
 ```
 
 ### 4(a)
@@ -300,10 +302,11 @@ for (j in 1:Nrep) {
 AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
 AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
 
+best_nn_vars = c(c(15, 20, 25, 30)[which.max(AccuracyAve)], c(0.5, 0.1, 0.01, 0)[which.max(AccuracyAve)])
+
 cat("Best NNet:", "\n", "Model:", which.max(AccuracyAve), "\n", 
-    "Decay:", c(15, 20, 25, 30)[which.max(AccuracyAve)], "\n", 
-    "Size:", c(0.5, 0.1, 0.01, 0)[which.max(AccuracyAve)], "\n",
-    "Accuracy:", max(AccuracyAve))
+    "Size:", c(15, 20, 25, 30)[which.max(AccuracyAve)], "\n", 
+    "Decay:", c(0.5, 0.1, 0.01, 0)[which.max(AccuracyAve)])
 ```
 
 ### 4(b)
@@ -319,16 +322,16 @@ Accuracy <- matrix(0, Nrep, n.models)
 for (j in 1:Nrep) {
   Ind <- CVInd(n, K)
   for (k in 1:K) {
-    control <- rpart.control(minbucket = 3, cp = 0.00001, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    control <- rpart.control(minbucket = 3, cp = 0.00001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
     yhat[Ind[[k]],1] <- predict(out,df_4[Ind[[k]],], type = "class")
-    control <- rpart.control(minbucket = 5, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    control <- rpart.control(minbucket = 5, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
     yhat[Ind[[k]],2]<-predict(out,df_4[Ind[[k]],], type = "class")
-    control <- rpart.control(minbucket = 7, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    control <- rpart.control(minbucket = 7, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
     yhat[Ind[[k]],3]<-predict(out,df_4[Ind[[k]],], type = "class")
-    control <- rpart.control(minbucket = 10, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 10)
+    control <- rpart.control(minbucket = 10, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 0)
     out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
     yhat[Ind[[k]],4]<-predict(out,df_4[Ind[[k]],], type = "class")
   } #end of k loop
@@ -338,10 +341,11 @@ for (j in 1:Nrep) {
 AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
 AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
 
+best_tree_vars = c(c(0.00001, 0.0001, 0.001, 0.01)[which.max(AccuracyAve)], c(3, 5, 7, 10)[which.max(AccuracyAve)])
+
 cat("Best Tree:", "\n", "Model:", which.max(AccuracyAve), "\n", 
-    "Decay:", c(0.00001, 0.0001, 0.001, 0.01)[which.max(AccuracyAve)], "\n", 
-    "Size:", c(3, 5, 7, 10)[which.max(AccuracyAve)], "\n",
-    "Accuracy:", max(AccuracyAve))
+    "CP:", c(0.00001, 0.0001, 0.001, 0.01)[which.max(AccuracyAve)], "\n", 
+    "Minbucket:", c(3, 5, 7, 10)[which.max(AccuracyAve)])
 ```
 
 ### 4(c)
@@ -365,15 +369,52 @@ for (j in 1:Nrep) {
 
 AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
 AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
-
-cat("MNLogistic Accuracy:", AccuracyAve)
 ```
-
-As we can see, the accuracy of the MN logit model is pretty far off the tree but closer to the nnet.
 
 ### 4(d)
 
-The logit model is more interpretable than the nnet but about the same as the tree model. The only extra piece of information the logit model gives us is access to the exact change in likelihoods / probabilities from looking at the coefficients. The tree model has a higher cross validation accuracy as well as similar interpretability. We should choose the tree model over the nnet all day. When looking at the MNlogit model we see that it gets about $12%$ less predictions correct. Given the slightly higher interpretability of the MNlogit model versus the much higher prediction accuracy of the Tree model, using the Tree model will be more appropriate for predicting glass type.
+```{r question_4d}
+Nrep <- 3 #number of replicates of CV
+K <- 4  #K-fold CV on each replicate
+n.models <- 3 #number of different models to fit
+n <- nrow(df_4)
+y <- as.numeric(df_4$type)
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
+
+check_acc <- function(x) {
+  return(mean(x == y))
+}
+
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=best_nn_vars[1], decay=best_nn_vars[2], maxit=1000, trace=F)
+    yhat[Ind[[k]], 1] <- as.factor(predict(out, df_4[Ind[[k]],], type="class"))
+    
+    control <- rpart.control(minbucket = best_tree_vars[2], cp = best_tree_vars[1], maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    prune(tree = out, cp = best_tree_vars[1])
+    yhat[Ind[[k]], 2] <- predict(out,df_4[Ind[[k]],], type = "class")
+    
+    model4 <- multinom(type~., df_4[-Ind[[k]],], maxit=1000, trace=F)
+    yhat[Ind[[k]], 3] <- predict(model4, df_4[Ind[[k]],], type = "class")
+    
+  } #end of k loop
+  
+  Accuracy[j,] <- apply(yhat, 2, check_acc) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+cat("Models", "\n",
+    "- NNet:", AccuracyAve[1], "\n",
+    "- Tree:", AccuracyAve[2], "\n",
+    "- MNLogit:", AccuracyAve[3])
+```
+
+The logit model is more interpretable than the nnet but about the same as the tree model. The only extra piece of information the logit model gives us is access to the exact change in likelihoods / probabilities from looking at the coefficients. The tree model has a higher cross validation accuracy as well as similar interpretability. We should choose the tree model over the nnet all day. When looking at the MNlogit model we see that it gets about `r AccuracyAve[2]-AccuracyAve[1]` less predictions correct. Given the slightly higher interpretability of the MNlogit model versus the much higher prediction accuracy of the Tree model, using the Tree model will be more appropriate for predicting glass type.
 
 # Appendix
 ### Commented out code is the output used to attain the results above. Commended to shorted final submission pdf.
