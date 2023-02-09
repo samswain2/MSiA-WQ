@@ -3,8 +3,8 @@ title: "hw02"
 author: "Samuel Swain"
 date: "2023-02-10"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -369,6 +369,8 @@ for (j in 1:Nrep) {
 
 AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
 AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+cat("[INFO] -- MNLogit model fit")
 ```
 
 ### 4(d)
@@ -418,3 +420,390 @@ The logit model is more interpretable than the nnet but about the same as the tr
 
 # Appendix
 ### Commented out code is the output used to attain the results above. Commended to shorted final submission pdf.
+
+```{r common_appendix, echo=TRUE}
+# Libraries
+library(boot)
+library(nnet)
+library(glmnet)
+library(ALEPlot)
+library(rpart)
+
+# Cross Validation
+CVInd <- function(n,K) { 
+  # n is sample size; K is number of parts; 
+  # returns K-length list of indices for each part
+  m<-floor(n/K) #approximate size of each part
+  r<-n-m*K
+  I<-sample(n,n) #random reordering of the indices
+  Ind<-list() #will be list of indices for all K parts
+  length(Ind)<-K
+  for (k in 1:K) {
+    if (k <= r) kpart <- ((m+1)*(k-1)+1):((m+1)*k)
+    else kpart<-((m+1)*r+m*(k-r-1)+1):((m+1)*r+m*(k-r))
+    Ind[[k]] <- I[kpart] #indices for kth part of data
+  }
+  Ind
+}
+
+# Standardize Function
+standardize_predictors <- function(data) {
+  predictors <- data
+  standardized_predictors <- scale(predictors)
+  data <- standardized_predictors
+  return(data)
+}
+```
+
+# Problem 1
+```{r hw_data_appendix, message=FALSE, echo=TRUE}
+library(readxl)
+df_1 = read_excel("HW2_data.xls")
+df_1 = df_1[, -c(1)]
+
+# Vars
+df_1$cost<-log(df_1$cost)
+X_1 = df_1[, -c(1)]
+df_1[, c(2, 3, 4, 5, 6, 7, 8, 9)] = standardize_predictors(X_1)
+```
+
+### 1(a)
+code:
+```{r question_1a_appendix, echo=TRUE}
+fit_1a <- lm(cost ~ age + gend + intvn + drugs + ervis, data = df_1)
+
+##Now use multiple reps of CV to compare Neural Nets and linear reg models###
+Nrep<-5 #number of replicates of CV
+K<-3  #K-fold CV on each replicate
+n.models = 1 #number of different models to fit
+n=nrow(df_1)
+y<-df_1$cost
+yhat=matrix(0,n,n.models)
+MSE<-matrix(0,Nrep,n.models)
+RMSE<-matrix(0,Nrep,n.models)
+for (j in 1:Nrep) {
+  Ind<-CVInd(n,K)
+  for (k in 1:K) {
+    out<-lm(cost ~ age + gend + intvn + drugs + ervis, data = df_1[-Ind[[k]],])
+    yhat[Ind[[k]],1]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+  } #end of k loop
+  MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
+  RMSE[j,]=apply(yhat,2,function(x) sqrt(sum((y-x)^2))/n)
+} #end of j loop
+MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
+MSEsd <- apply(MSE,2,sd)   #SD of mean square CV error
+RMSEAve<- apply(RMSE,2,mean) #averaged mean square CV error
+RMSEsd <- apply(RMSE,2,sd)   #SD of mean square CV error
+
+# cat("MSE:", "\n", "- Average:", MSEAve, "\n", "- SD", MSEsd)
+```
+
+### 1(b)
+code:
+```{r question_1b_appendix, echo=TRUE}
+# summary(fit_1a)
+```
+
+### 1(c)
+code:
+```{r question_1c_appendix, echo=TRUE}
+# par(mfrow = c(2,2))
+# plot(fit_1a)
+```
+
+# Problem 2
+
+### 2(a)
+code:
+```{r question_2a_appendix, echo=TRUE}
+##Now use multiple reps of CV to compare Neural Nets and linear reg models###
+Nrep<-3 #number of replicates of CV
+K<-10  #K-fold CV on each replicate
+n.models = 4 #number of different models to fit
+n=nrow(df_1)
+y<-df_1$cost
+yhat=matrix(0,n,n.models)
+MSE<-matrix(0,Nrep,n.models)
+for (j in 1:Nrep) {
+  Ind<-CVInd(n,K)
+  for (k in 1:K) {
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=15, decay=.5, maxit=1000, trace=F)
+    yhat[Ind[[k]],1]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=20, decay=.1, maxit=1000, trace=F)
+    yhat[Ind[[k]],2]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=25, decay=.01, maxit=1000, trace=F)
+    yhat[Ind[[k]],3]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    out<-nnet(cost~.,df_1[-Ind[[k]],], linout=T, skip=F, size=30, decay=0, maxit=1000, trace=F)
+    yhat[Ind[[k]],4]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+  } #end of k loop
+  MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
+} #end of j loop
+# MSE
+MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
+MSEsd <- apply(MSE,2,sd)  #SD of mean square CV error
+
+cat("Best NNet:", "\n", "Model:", which.min(MSEAve), "\n", 
+    "Decay:", c(15, 20, 25, 30)[which.min(MSEAve)], "\n", 
+    "Size:", c(0.5, 0.1, 0.01, 0)[which.min(MSEAve)])
+```
+
+### 2(b)
+code:
+```{r question_2b_appendix, echo=TRUE}
+best_nnet_2b <- nnet(cost~., df_1, linout=T, skip=F, 
+                     size=c(15, 20, 25, 30)[which.min(MSEAve)], 
+                     decay=c(0.5, 0.1, 0.01, 0)[which.min(MSEAve)], 
+                     maxit=1000, trace=F)
+cat("MSE:", "\n", "- Average:", MSEAve[which.min(MSEAve)], "\n", "- SD", MSEsd[which.min(MSEAve)])
+```
+
+### 2(c)
+code:
+```{r question_2c_appendix, echo=TRUE}
+df_newdata = df_1[2:9]
+df_newdata <- as.data.frame(df_newdata)
+
+yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
+
+par(mfrow=c(2,4))
+for (j in 1:8)  {ALEPlot(df_newdata, best_nnet_2b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
+  rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
+par(mfrow=c(1,1))
+```
+
+### 2(d)
+code:
+```{r, question_2d_appendix, echo=TRUE}
+# Extract the fitted values and residuals
+fit_vals <- fitted(best_nnet_2b)
+residuals <- residuals(best_nnet_2b)
+
+# Plot the fitted values against the residuals
+plot(fit_vals, residuals)
+abline(h=0, col="red")
+```
+
+# Problem 3
+
+### 3(a)
+code:
+```{r question_3a_appendix, echo=TRUE}
+##Now use multiple reps of CV to compare Neural Nets and linear reg models###
+Nrep<-3 #number of replicates of CV
+K<-10  #K-fold CV on each replicate
+n.models = 4 #number of different models to fit
+n=nrow(df_1)
+y<-df_1$cost
+yhat=matrix(0,n,n.models)
+MSE<-matrix(0,Nrep,n.models)
+for (j in 1:Nrep) {
+  Ind<-CVInd(n,K)
+  for (k in 1:K) {
+    control <- rpart.control(minbucket = 10, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],1] <- as.numeric(predict(out,df_1[Ind[[k]],]))
+    control <- rpart.control(minbucket = 10, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],2]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    control <- rpart.control(minbucket = 15, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],3]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+    control <- rpart.control(minbucket = 20, cp = 0.1, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+    yhat[Ind[[k]],4]<-as.numeric(predict(out,df_1[Ind[[k]],]))
+  } #end of k loop
+  MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
+} #end of j loop
+# MSE
+MSEAve<- apply(MSE,2,mean) #averaged mean square CV error
+MSEsd <- apply(MSE,2,sd)  #SD of mean square CV error
+
+# cat("Best Tree:", "\n", "Model:", which.min(MSEAve), "\n", "Minbucket:", c(10, 10, 15, 20)[which.min(MSEAve)], "\n", "CP:", c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)])
+```
+
+### 3(b)
+code:
+```{r question_3b_appendix, echo=TRUE}
+control <- rpart.control(minbucket = c(10, 10, 15, 20)[which.min(MSEAve)], cp = c(0.0001, 0.001, 0.01, 0.1)[which.min(MSEAve)], maxsurrogate = 0, usesurrogate = 0, xval = 10)
+best_tree_3b <- rpart(cost~.,df_1[-Ind[[k]],], method = "anova", control = control)
+
+# cat("MSE:", "\n", "- Average:", MSEAve[which.min(MSEAve)], "\n", "- SD", MSEsd[which.min(MSEAve)], "\n")
+```
+
+### 3(c)
+code:
+```{r question_3c_appendix, echo=TRUE}
+yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
+
+par(mfrow=c(2,4))
+for (j in 1:8)  {ALEPlot(df_newdata, best_tree_3b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
+  rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
+par(mfrow=c(1,1))
+```
+
+### 3(d)
+code:
+```{r question_3d_appendix, echo=TRUE}
+# Get fitted values and residuals
+fitted_values <- predict(best_tree_3b)
+residuals <- df_1[-Ind[[k]], "cost"] - fitted_values
+
+# Plot fitted versus residuals
+# plot(fitted_values, residuals$cost, xlab = "Fitted Values", ylab = "Residuals")
+# abline(0, 0)
+```
+
+# Question 4
+
+```{r data_4_appendix, message=FALSE, echo=TRUE}
+library(readxl)
+df_4 = read_excel("HW2_data.xls", sheet = "FGL data")
+df_4 = df_4[, -c(1)]
+df_4[, -c(10)] = scale(df_4[, -c(10)])
+df_4$type <- as.factor(df_4$type)
+
+set.seed(420)
+```
+
+### 4(a)
+code:
+```{r question_4a_appendix, echo=TRUE}
+Nrep <- 3 #number of replicates of CV
+K <- 10  #K-fold CV on each replicate
+n.models <- 4 #number of different models to fit
+n <- nrow(df_4)
+y <- df_4$type
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
+
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=10, decay=.5, maxit=10, trace=F) # Maxit = 1000 in read code, this for display
+    yhat[Ind[[k]], 1] <- predict(out, df_4[Ind[[k]],], type="class")
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=15, decay=.5, maxit=10, trace=F) # Maxit = 1000 in read code, this for display
+    yhat[Ind[[k]], 2] <- predict(out, df_4[Ind[[k]],], type="class")
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=20, decay=.5, maxit=10, trace=F) # Maxit = 1000 in read code, this for display
+    yhat[Ind[[k]], 3] <- predict(out, df_4[Ind[[k]],], type="class")
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=25, decay=.5, maxit=10, trace=F) # Maxit = 1000 in read code, this for display
+    yhat[Ind[[k]], 4] <- predict(out, df_4[Ind[[k]],], type="class")
+  } #end of k loop
+  Accuracy[j,] <- apply(yhat, 2, function(x) mean(x == y)) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+best_nn_vars = c(c(15, 20, 25, 30)[which.max(AccuracyAve)], c(0.5, 0.1, 0.01, 0)[which.max(AccuracyAve)])
+
+# cat("Best NNet:", "\n", "Model:", which.max(AccuracyAve), "\n", 
+#     "Size:", c(15, 20, 25, 30)[which.max(AccuracyAve)], "\n", 
+#     "Decay:", c(0.5, 0.1, 0.01, 0)[which.max(AccuracyAve)])
+```
+
+### 4(b)
+code:
+```{r question_4b_appendix, echo=TRUE}
+Nrep <- 3 #number of replicates of CV
+K <- 10  #K-fold CV on each replicate
+n.models <- 4 #number of different models to fit
+n <- nrow(df_4)
+y <- y <- as.numeric(df_4$type)
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
+
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    control <- rpart.control(minbucket = 3, cp = 0.00001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],1] <- predict(out,df_4[Ind[[k]],], type = "class")
+    control <- rpart.control(minbucket = 5, cp = 0.0001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],2]<-predict(out,df_4[Ind[[k]],], type = "class")
+    control <- rpart.control(minbucket = 7, cp = 0.001, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],3]<-predict(out,df_4[Ind[[k]],], type = "class")
+    control <- rpart.control(minbucket = 10, cp = 0.01, maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    yhat[Ind[[k]],4]<-predict(out,df_4[Ind[[k]],], type = "class")
+  } #end of k loop
+  Accuracy[j,] <- apply(yhat, 2, function(x) mean(x == y)) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+best_tree_vars = c(c(0.00001, 0.0001, 0.001, 0.01)[which.max(AccuracyAve)], c(3, 5, 7, 10)[which.max(AccuracyAve)])
+
+# cat("Best Tree:", "\n", "Model:", which.max(AccuracyAve), "\n", 
+#     "CP:", c(0.00001, 0.0001, 0.001, 0.01)[which.max(AccuracyAve)], "\n", 
+#     "Minbucket:", c(3, 5, 7, 10)[which.max(AccuracyAve)])
+```
+
+### 4(c)
+code:
+```{r question_4c_appendix, echo=TRUE}
+Nrep <- 3 #number of replicates of CV
+K <- 3  #K-fold CV on each replicate
+n.models <- 1 #number of different models to fit
+n <- nrow(df_4)
+y <- as.numeric(df_4$type)
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
+
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    model4 <- multinom(type~., df_4[-Ind[[k]],], maxit=1000, trace=F)
+    yhat[Ind[[k]],1] <- predict(model4, df_4[Ind[[k]],], type = "class")
+  } #end of k loop
+  Accuracy[j,] <- apply(yhat, 2, function(x) mean(x == y)) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+```
+
+### 4(d)
+code:
+```{r question_4d_appendix, echo=TRUE}
+Nrep <- 3 #number of replicates of CV
+K <- 4  #K-fold CV on each replicate
+n.models <- 3 #number of different models to fit
+n <- nrow(df_4)
+y <- as.numeric(df_4$type)
+yhat <- matrix(0, n, n.models)
+Accuracy <- matrix(0, Nrep, n.models)
+
+check_acc <- function(x) {
+  return(mean(x == y))
+}
+
+for (j in 1:Nrep) {
+  Ind <- CVInd(n, K)
+  for (k in 1:K) {
+    out <- nnet(type ~ ., df_4[-Ind[[k]],], linout=F, skip=F, size=best_nn_vars[1], decay=best_nn_vars[2], maxit=10, trace=F) # Maxit = 1000 in read code, this for display
+    yhat[Ind[[k]], 1] <- as.factor(predict(out, df_4[Ind[[k]],], type="class"))
+    
+    control <- rpart.control(minbucket = best_tree_vars[2], cp = best_tree_vars[1], maxsurrogate = 0, usesurrogate = 0, xval = 0)
+    out <- rpart(type~.,df_4[-Ind[[k]],], method = "class", control = control)
+    prune(tree = out, cp = best_tree_vars[1])
+    yhat[Ind[[k]], 2] <- predict(out,df_4[Ind[[k]],], type = "class")
+    
+    model4 <- multinom(type~., df_4[-Ind[[k]],], maxit=1000, trace=F)
+    yhat[Ind[[k]], 3] <- predict(model4, df_4[Ind[[k]],], type = "class")
+    
+  } #end of k loop
+  
+  Accuracy[j,] <- apply(yhat, 2, check_acc) # Accuracy calculation
+} #end of j loop
+
+AccuracyAve <- apply(Accuracy, 2, mean) #averaged mean accuracy
+AccuracySd <- apply(Accuracy, 2, sd)  #SD of mean accuracy
+
+# cat("Models", "\n",
+#     "- NNet:", AccuracyAve[1], "\n",
+#     "- Tree:", AccuracyAve[2], "\n",
+#     "- MNLogit:", AccuracyAve[3])
+```
