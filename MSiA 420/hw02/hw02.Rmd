@@ -3,8 +3,8 @@ title: "hw02"
 author: "Samuel Swain"
 date: "2023-02-10"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -416,7 +416,7 @@ cat("Models", "\n",
     "- MNLogit:", AccuracyAve[3])
 ```
 
-The logit model is more interpretable than the nnet but about the same as the tree model. The only extra piece of information the logit model gives us is access to the exact change in likelihoods / probabilities from looking at the coefficients. The tree model has a higher cross validation accuracy as well as similar interpretability. We should choose the tree model over the nnet all day. When looking at the MNlogit model we see that it gets about `r AccuracyAve[2]-AccuracyAve[1]` less predictions correct. Given the slightly higher interpretability of the MNlogit model versus the much higher prediction accuracy of the Tree model, using the Tree model will be more appropriate for predicting glass type.
+The logit model is more interpretable than the nnet but about the same as the tree model. The only extra piece of information the logit model gives us is access to the exact change in likelihoods / probabilities from looking at the coefficients. The tree model has a higher cross validation accuracy as well as similar interpretability. We should choose the tree model over the nnet all day. When looking at the MNlogit model we see that it gets about `r round(AccuracyAve[2]-AccuracyAve[1], 2) * 100`% less predictions correct. Given the slightly higher interpretability of the MNlogit model versus the much higher prediction accuracy of the Tree model, using the Tree model will be more appropriate for predicting glass type.
 
 # Appendix
 ### Commented out code is the output used to attain the results above. Commended to shorted final submission pdf.
@@ -565,10 +565,10 @@ df_newdata <- as.data.frame(df_newdata)
 
 yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
 
-par(mfrow=c(2,4))
-for (j in 1:8)  {ALEPlot(df_newdata, best_nnet_2b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
-  rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
-par(mfrow=c(1,1))
+# par(mfrow=c(2,4))
+# for (j in 1:8)  {ALEPlot(df_newdata, best_nnet_2b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
+#   rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
+# par(mfrow=c(1,1))
 ```
 
 ### 2(d)
@@ -579,8 +579,8 @@ fit_vals <- fitted(best_nnet_2b)
 residuals <- residuals(best_nnet_2b)
 
 # Plot the fitted values against the residuals
-plot(fit_vals, residuals)
-abline(h=0, col="red")
+# plot(fit_vals, residuals)
+# abline(h=0, col="red")
 ```
 
 # Problem 3
@@ -635,10 +635,10 @@ code:
 ```{r question_3c_appendix, echo=TRUE}
 yhat <- function(X.model, newdata) as.numeric(predict(X.model, newdata))
 
-par(mfrow=c(2,4))
-for (j in 1:8)  {ALEPlot(df_newdata, best_tree_3b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
-  rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
-par(mfrow=c(1,1))
+# par(mfrow=c(2,4))
+# for (j in 1:8)  {ALEPlot(df_newdata, best_tree_3b, pred.fun=yhat, J=j, K=50, NA.plot = TRUE)
+#   rug(df_newdata[,j]) }  ## This creates main effect ALE plots for all 8 predictors
+# par(mfrow=c(1,1))
 ```
 
 ### 3(d)
