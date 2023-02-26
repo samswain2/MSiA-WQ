@@ -1,0 +1,31 @@
+---
+title: "hw03"
+author: "Samuel Swain"
+date: "2023-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Read Data
+
+```{r}
+df <- read.csv('df_test.csv')
+df_nachos <- df[df$menuitemname == 'nachos',]
+df_nachos <- df_nachos[,-c(1,2,3)]
+df_nachos_2 <- read.csv('nacho.csv')
+df_nachos_2 <- df_nachos_2[,-c(1)]
+```
+
+# Question 1
+```{r}
+fit_hope = lm(UseCount ~ weighted_actual_price, data=df_nachos_2)
+summary(fit_hope)
+```
+
+```{r}
+fit_hope = lm(demand ~ actual_price, data=df_nachos)
+summary(fit_hope)
+```
