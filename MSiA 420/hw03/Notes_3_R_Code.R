@@ -55,7 +55,7 @@ for (j in 1:Nrep) {
   } #end of k loop
   MSE[j,]=apply(yhat,2,function(x) sum((y-x)^2))/n
 } #end of j loop
-MSEAve<- apply(MSE,2,mean); MSEAve #averaged mean square CV error
+MSEAve <- apply(MSE,2,mean); MSEAve #averaged mean square CV error
 MSEsd <- apply(MSE,2,sd); MSEsd   #SD of mean square CV error
 r2<-1-MSEAve/var(y); r2  #CV r^2
 plot(yhat[,2],y)
