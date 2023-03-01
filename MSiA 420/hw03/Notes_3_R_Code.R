@@ -45,7 +45,7 @@ for (j in 1:Nrep) {
     train<-as.matrix(CRT1[-Ind[[k]],1:8])
     test<-as.matrix(CRT1[Ind[[k]],1:8])
     ytrain<-CRT1[-Ind[[k]],9]
-    K1=3;K2=2
+    K1=3;K2=4
     out<-ann(train,test,K1,verbose=F)
     ind<-as.matrix(out$knnIndexDist[,1:K1])
     yhat[Ind[[k]],1]<-apply(ind,1,function(x) mean(ytrain[x]))
