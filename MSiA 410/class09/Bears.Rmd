@@ -1,0 +1,275 @@
+---
+title: "MSiA 410 Homework 7"
+subtitle: "Chicago Bears' Concession Pricing"
+author: "Adam Sandler"
+date: "2/28/2023"
+output: beamer_presentation
+theme: Northwestern # http://www.rohit-patel.com/beamer-themes/northwestern-beamer-theme
+header-includes: \def\NoTitleUnderline{}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem
+
+* 7 promotional items
+  * BtlWater, HotDog, Nachos, Peanuts, Popcorn, Pretzel, SouvCup
+* Price elasticity
+  * Impact of sales on other items
+* Profitability
+  * Weaknesses
+
+## Demand curve
+
+* Law of demand
+  * For most goods, as the price increases, quantity demanded will decrease
+* Supply
+  * The Bears have a monopoly over concessions at the stadium
+
+\center
+![](demand.png){width=70%}
+  
+## Complementary vs Substitute Goods
+
+* Complementary goods - bought together
+  * Ex: Do you want fries with that?
+* Substitute goods - can be bought to replace one another
+  * Ex: Do you want a hot dog or a hamburger?
+
+## Assumptions
+
+* Price and discounts cause the different quantities sold
+  * Game schedule doesn't matter
+    * Games 1, 7 - Thu 7:20pm
+    * Games 4, 5, 6 - Sun Noon
+    * Games 2, 3 - Sun 3:25pm
+    * Game 8 - Sun 7:20pm
+  * No significant difference between Club and GA Level (other than discount)
+* Sales are only available to season ticket holders (STHs)
+  
+## Data Cleaning
+
+* Re-calculated price paid based on price & discount
+  * `actual_price` seems to have errors or noise
+* Remove free waters for being a designated driver
+* Remove sale items we don't care about
+
+```{r, echo=FALSE, include=FALSE}
+#packages required
+library(readxl); library(stringr); library(knitr); library(kableExtra); library(lme4); library(ggplot2)
+```
+
+\footnotesize
+```{r}
+# import data
+concessions = data.frame(read_excel(
+  "ConcessionSalesData_ForClass.xlsx"))
+```
+```{r, echo=FALSE}
+names(concessions)[names(concessions) == 'MENUITEMNAME'] = 'item'
+names(concessions)[names(concessions) == 'total_product_rev_nonSTH'] = 'nonSTHrev'
+items = c('BTL DEJA BLUE', 'HOT DOG', 'NACHOS', 'BAG PEANUTS',
+          'SOUV POPCORN', 'BAVARIAN PRETZEL', 'SOUV CUP 32')
+names=c('BtlWater','HotDog','Nachos','Peanuts','Popcorn','Pretzel','SouvCup')
+for(i in 1:length(items)){
+  concessions$item[concessions$item == items[i]] = names[i]
+}
+```
+```{r}
+# compute prices
+concessions$price=concessions$PRICES*
+  (1-concessions$Discount.Percentage/100)
+
+# subset to remove items we don't care about
+concessions = subset(concessions, price>0)
+concessions2 = subset(concessions, special_item=="Yes")
+```
+  
+## Weekly Deals
+
+* Which discounts are each week?
+  * $2^7$ = 128 combinations, only 8 weeks
+  * Peanuts & Nachos tied together
+  * Games 1 & 4 have identical discounts
+
+\footnotesize
+```{r}
+#get unique games
+weekly=concessions2[!duplicated(concessions$game_week),17:23]
+```
+
+\scriptsize
+```{r, echo=FALSE}
+# change column and row names
+colnames(weekly)=str_replace(colnames(weekly),"Discount_",'')
+rownames(weekly)=unique(concessions$game_week)
+
+kable(weekly, "pipe") #display
+```
+
+## Aggregate
+
+* Sum # of sales over variables other than game, menu item, price, discounts
+
+```{r}
+ac = aggregate(UseCount ~ game_week + item
+               + price + nonSTHrev
+               + Discount.Percentage + Discount_HotDog 
+               + Discount_SouvCup + Discount_BtlWater
+               + Discount_Peanuts + Discount_Nachos
+               + Discount_Pretzel + Discount_Popcorn,
+               concessions2, sum)
+```
+```{r, echo=FALSE}
+ac=ac[order(ac$item),] # order by item
+#kable_styling(kable(ac[1:6,1:6], "latex"), font_size = 6)
+```
+
+## Price Elasticity
+
+* Compute slope and intercept of linear regressions for each item
+* Values with p-value < 0.05 **bolded**
+
+\small
+```{r}
+fits = lmList(log(UseCount) ~ log(price) + log(nonSTHrev)
+              | item, data=ac)
+```
+```{r, echo=FALSE}
+fit_table = function(fits){
+  sum=sapply(coef(fits), sprintf, fmt = "%.2f")
+  pv=summary(fits)$coefficients[,4,]<.05
+  colnames(sum)[1]='Intercept'
+  if(nrow(sum) == length(names)){ rownames(sum)=names}
+  for(r in 1:nrow(sum)){
+    for(c in 1:ncol(sum)){
+      if(pv[r,c]){ sum[r,c]=cell_spec(sum[r,c], bold=T)}
+    }
+  }
+  return(sum)
+}
+sum = fit_table(fits)
+kable(sum, "pipe", align=c(rep('r',times=ncol(sum))))
+```
+
+## Price Elasticity
+
+```{r, echo=FALSE}
+model.df <- data.frame(x = ac$price,y = exp(fitted(fits)), z=ac$item) # get predictions
+ggplot(ac, aes(x=price, y=UseCount, color=item)) + geom_point() + geom_smooth(method=lm, formula=(y~exp(-x)), data = model.df, aes(x, y, color = z), se=FALSE) + xlab("Price ($)") + ylab("Sales") + labs(color = "Item")
+```
+
+## How many STHs are at each level?
+
+* Problem: Club level (getting 20% discount) has fewer STHs than GA getting 10%
+* About 80% GA, 20% Club
+
+```{r}
+users = aggregate(Discount.Percentage ~ UserID,
+                  concessions, min)
+```
+```{r, echo=FALSE}
+kable(table(users$Discount.Percentage), col.names=c('Discount','STHs'), "pipe", align=c(rep('r',times=2)))
+```
+
+## Adjust Sales
+
+* Adjust sales based on prevelance of club & GA levels
+  * Multiply 10% discounted sales by 5/4
+  * Multiply 20% discounted sales by 5
+  * 50% discounted sales are available to all levels
+
+```{r}
+ac2=ac; ind=ac$Discount.Percentage==10
+ac2[ind,"UseCount"]=5/4*ac[ind,"UseCount"]
+ind=ac$Discount.Percentage==20
+ac2[ind,"UseCount"]=5*ac[ind,"UseCount"]
+```
+
+## Adjusted Price Elasticity
+
+\small
+```{r}
+fits = lmList(log(UseCount) ~ log(price) + log(nonSTHrev)
+              | item, data=ac2)
+```
+```{r, echo=FALSE}
+sum = fit_table(fits)
+kable(sum, "pipe", align=c(rep('r',times=ncol(sum))))
+```
+
+## Adjusted Price Elasticity
+
+```{r, echo=FALSE}
+model.df <- data.frame(x = ac2$price,y = exp(fitted(fits)), z=ac2$item) # get predictions
+ggplot(ac2, aes(x=price, y=UseCount, color=item)) + geom_point() + geom_smooth(method=lm, formula=(y~exp(-x)), data = model.df, aes(x, y, color = z), se=FALSE) + xlab("Price ($)") + ylab("Sales") + labs(color = "Item")
+```
+
+## Effect of Hot Dog Discounts
+
+* Hot dog discounts hurt water sales
+
+\small
+```{r}
+ac3 = ac2[ac2$item != "HotDog",]
+fits = lmList(log(UseCount) ~ log(price) + log(nonSTHrev)
+              + Discount_HotDog | item, data=ac3)
+```
+```{r, echo=FALSE}
+sum=fit_table(fits)
+colnames(sum)[4]='HD Disc'
+rownames(sum)=names[names != 'HotDog']
+kable(sum, "pipe", align=c(rep('r',times=ncol(sum))))
+```
+
+## Effect of Each Discount
+
+\small
+```{r, echo=FALSE}
+cf = data.frame(matrix(ncol=length(names), nrow=length(names)))
+colnames(cf)=names; rownames(cf)=names
+pv = cf
+```
+```{r}
+for(n in names){
+  ac3 = ac2[ac2$item != n,]
+  f = paste0("log(UseCount)~log(price)+log(nonSTHrev)",
+             "+Discount_",n,"|item")
+  fits = lmList(as.formula(f), data=ac3)
+  cf[rownames(cf)!=n,n] = coef(fits)[,4]
+  pv[rownames(pv)!=n,n] = summary(fits)$coefficients[,4,4]
+}
+```
+
+## Effect of Each Discount
+
+* Rows are items, columns discounts
+* Water sales are helped by nacho/peanut discounts
+  * Reminder: nacho & peanut discounts were tied together
+
+\scriptsize
+```{r, echo=FALSE}
+sum=sapply(cf, sprintf, fmt = "%.2f")
+rownames(sum)=names
+sum[is.na(sum)]="-"
+for(r in 1:nrow(sum)){
+  for(c in 1:ncol(sum)){
+    if(!is.na(pv[r,c]) && pv[r,c]<.05){ sum[r,c]=cell_spec(sum[r,c], bold=T)}
+  }
+}
+kable(sum, "pipe", align=c(rep('r',times=ncol(sum))))
+```
+
+## Next Steps
+
+* Is there enough information/data here to make any decisions?
+  * If so, on what?
+  * If not, how would you collect more data?
+* What additional information may be helpful for future analysis?
+  * More weeks of data
+  * Different discount combinations
+  * More differentiation in price
+  * More users of the concession app
+  * Etc.
