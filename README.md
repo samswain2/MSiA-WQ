@@ -1,7 +1,8 @@
 # MSiA-WQ
+Repo containing all homework for the MSiA Program Winter Quarter.
 
-Repo for MSiA Winter Quarter coursework
-
-
-Titanic Ideas:
-Dimensionality Reduction / Curse of Dimensionality
+## Courses (Fall Quarter)
+- MSiA 410: Generating Business Value with Analytics
+- MSiA 411: Data Visualization
+- MSiA 420: Predictive Analytics II
+- MSiA 421: Data Mining
